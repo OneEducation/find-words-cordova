@@ -1,6 +1,4 @@
-import java.util.regex.Pattern
-
-apply plugin: 'android'
+apply plugin: 'com.android.application'
 
 buildscript {
     repositories {
@@ -8,7 +6,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.10.+'
+        classpath 'com.android.tools.build:gradle:1.1.0'
     }
 }
 
@@ -16,12 +14,18 @@ ext.multiarch=false
 
 dependencies {
     compile fileTree(dir: 'libs', include: '*.jar')
-    for (subproject in getProjectList()) {
-        compile project(subproject)
-    }
+    compile files('CordovaLib/ant-build/classes.jar')
 }
 
 android {
+    signingConfigs {
+        release {
+            keyAlias 'OneEdu'
+            keyPassword 'Olpcau2015'
+            storeFile file('/Users/dongseok0/org.oneedu.signing_key.jks')
+            storePassword 'Olpcau2015'
+        }
+    }
     sourceSets {
         main {
             manifest.srcFile 'AndroidManifest.xml'
@@ -34,61 +38,20 @@ android {
         }
     }
 
-    defaultConfig {
-        versionCode Integer.parseInt("" + getVersionCodeFromManifest() + "0")
-    }
-
-    compileSdkVersion 19
-    buildToolsVersion "19.0.0"
-
-    if (multiarch || System.env.BUILD_MULTIPLE_APKS) {
-        productFlavors {
-            armv7 {
-                versionCode defaultConfig.versionCode + 2
-                ndk {
-                    abiFilters "armeabi-v7a", ""
-                }
-            }
-            x86 {
-                versionCode defaultConfig.versionCode + 4
-                ndk {
-                    abiFilters "x86", ""
-                }
-            }
-            all {
-                ndk {
-                    abiFilters "all", ""
-                }
-            }
-        }
-    }
+    compileSdkVersion 21
+    buildToolsVersion "21.1.2"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_7
         targetCompatibility JavaVersion.VERSION_1_7
     }
-
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
 }
 
 task wrapper(type: Wrapper) {
     gradleVersion = '1.12'
-}
-
-def getVersionCodeFromManifest() {
-    def manifestFile = file(android.sourceSets.main.manifest.srcFile)
-    def pattern = Pattern.compile("versionCode=\"(\\d+)\"")
-    def matcher = pattern.matcher(manifestFile.getText())
-    matcher.find()
-    return Integer.parseInt(matcher.group(1))
-}
-
-def getProjectList() {
-    def manifestFile = file("project.properties")
-    def pattern = Pattern.compile("android.library.reference.(\\d+)\\s*=\\s*(.*)")
-    def matcher = pattern.matcher(manifestFile.getText())
-    def projects = []
-    while (matcher.find()) {
-      projects.add(":" + matcher.group(2).replace("/",":"))
-    }
-    return projects
 }

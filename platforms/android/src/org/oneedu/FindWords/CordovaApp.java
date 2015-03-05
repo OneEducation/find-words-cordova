@@ -17,7 +17,7 @@
        under the License.
  */
 
-package org.sugarlabs.FindWords;
+package org.oneedu.FindWords;
 
 import android.os.Bundle;
 import org.apache.cordova.*;
