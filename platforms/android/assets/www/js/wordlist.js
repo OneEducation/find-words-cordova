@@ -90,7 +90,7 @@ define(function (require) {
         img.src = url;
     };
 
-    function createAsyncBitmapButton(stage, url, align, callback) {
+    function createAsyncBitmapButton(stage, url, align, parentBound, callback) {
         var img = new Image();
         img.container = null;
 
@@ -105,23 +105,26 @@ define(function (require) {
 
             if (this.container == null) {
                 this.container = new createjs.Container();
-                var hitArea = new createjs.Shape();
-                hitArea.graphics.beginFill("#000").drawRect(0, 0,
-                    bounds.width, bounds.height);
-                this.container.hitArea = hitArea;
-                this.container.width = bounds.width;
-                this.container.height = bounds.height;
-                this.container.addChild(bitmap);
+                var margin = {
+                    x: (parentBound.width / 3 - bounds.width * scale)/2,
+                    y: (parentBound.height - bounds.height * scale)/2
+                };
 
-                this.container.y = 10;
+                var hitArea = new createjs.Shape();
+                hitArea.graphics.beginFill("#000").drawRect(-margin.x, -margin.y, parentBound.width / 3, parentBound.height);
+                this.container.hitArea = hitArea;
+                this.container.addChild(bitmap);
+                /*var background = new createjs.Shape();
+                background.graphics.beginFill("#878787").drawRect(-margin.x, -margin.y,
+                    parentBound.width / 3, parentBound.height);*/
+                    
+                this.container.y = parentBound.y + margin.y;
                 if (align == 'left') {
-                    this.container.x = 30;
+                    this.container.x = parentBound.x + margin.x;
                 } else if (align == 'center') {
-                    this.container.x = (stage.canvas.width - shadow_width -
-                                (bounds.width * scale)) / 2;
+                    this.container.x = parentBound.x + parentBound.width / 3 + margin.x;  
                 } else if (align == 'right') {
-                    this.container.x = stage.canvas.width - shadow_width -
-                        (bounds.width * scale) - 30;
+                    this.container.x = parentBound.x + parentBound.width * 0.66 + margin.x;
                 };
 
                 stage.addChild(this.container);
@@ -145,6 +148,14 @@ define(function (require) {
         this.wordHeight = smallScreen ? 35 : 50;
 
         this.stage = new createjs.Stage(this.canvas);
+
+        // fix for click event not firing consistantly
+        var badAndroidDevice = navigator.userAgent.indexOf("Android") > -1 && !(navigator.userAgent.indexOf("Chrome") > -1);
+        if (badAndroidDevice && createjs.Touch.isSupported()) {
+            this.stage.enableDOMEvents(false);
+            createjs.Touch.enable(this.stage);
+        }
+        
         this.stage.enableMouseOver(20);
 
         this.handleComplete = function (event) {
@@ -170,9 +181,11 @@ define(function (require) {
         queue.on("complete", this.handleComplete, this);
         queue.loadFile({id:"minus", src:"icons/minus.png"});
 
-        createjs.Ticker.addEventListener("tick", this.stage);
+        // createjs.Ticker.addEventListener("tick", this.stage);
 
         // add a background
+        this.bgContainer = new createjs.Container();
+
         this.background = new createjs.Shape();
         this.background.graphics.beginFill(
             createjs.Graphics.getRGB(0x038a4dd)).drawRect(
@@ -198,17 +211,24 @@ define(function (require) {
             bitmap.y = 0;
             stage.addChildAt(bitmap, 1);
 
+            var boundForChildren = {
+                x : 0, y : 0,
+                width : bounds.width * scale,
+                height : bounds.height * scale * 0.7
+            };
+
             if (onAndroid) {
                 createAsyncBitmapButton(stage, "./images/arrow-black.svg", 'left',
-                function(button) {
+                boundForChildren, function(button) {
                     button.on('click', function() {
+                        createjs.Tween.removeAllTweens();
                         game.stop();
                         game.previousPage();
                     });
                 });
 
                 createAsyncBitmapButton(stage, "./images/uppercase-lowercase.svg",
-                'center', function(button) {
+                'center', boundForChildren, function(button) {
                     button.on('click', function() {
                         game.setLowerCase(!game.lowerCase);
                     });
@@ -220,7 +240,7 @@ define(function (require) {
                 };
 
                 audioImg = createAsyncBitmapButton(
-                    stage, audioImgSrc, 'right',
+                    stage, audioImgSrc, 'right', boundForChildren,
                     function(button) {
                         button.on('click', function() {
                             game.enableAudio(!game.audioEnabled);
@@ -267,40 +287,65 @@ define(function (require) {
         }, this);
 
         this.deleteButtonCb = function (event) {
+            function doneHandler() {
+                
+                animationDone++;
+                console.log(this.wordElements.length + " / " + animationDone)
+                if (this.wordElements.length === animationDone) {
+                    createjs.Ticker.removeEventListener("tick", this.stage);
+                    if (wordElementIndex > -1) {
+                        this.wordElements.splice(wordElementIndex, 1);
+                    };
+                }
+            };
+
             if (this.game.started) {
                 return;
             };
 
             if (this.selectedWord != null) {
+                createjs.Ticker.addEventListener("tick", this.stage);
+
                 this.game.removeWord(this.selectedWord.word);
 
-                this.stage.removeChild(this.selectedWord);
+                createjs.Tween.get(this.selectedWord)
+                .to({x: this.canvas.width}, 300, createjs.Ease.cubicIn)
+                .call(function() {
+                    this.stage.removeChild(this.selectedWord); 
+                    this.selectedWord = null;
+                    doneHandler.apply(this);
+                }, [], this);
+                
                 this.deleteButton.visible = false;
 
                 var found = false;
                 // animate the pending blocks
                 var delay = 100;
                 var wordElementIndex = -1;
+                var animationDone = 0;
                 for (var n = 0; n < this.wordElements.length; n++) {
                     var textElement = this.wordElements[n];
                     if (textElement.text.toUpperCase() ==
                         this.selectedWord.word) {
                         found = true;
                         wordElementIndex = n;
-                    };
+                        continue;
+                    }
+
                     if (found) {
                         var cont = textElement.parent;
                         var y_final_position = cont.y + this.wordHeight;
                         createjs.Tween.get(cont).wait(delay).to(
                             {y:y_final_position}, 1000,
-                            createjs.Ease.bounceOut);
+                            createjs.Ease.bounceOut)
+                            .call(doneHandler, [], this);
                         delay = delay + 100;
-                    };
+                    } else {
+                        doneHandler.apply(this);
+                    }
                 };
-                if (wordElementIndex > -1) {
-                    this.wordElements.splice(wordElementIndex, 1);
-                };
-                this.selectedWord = null;
+                
+                
                 this.noMoreSpace = false;
             };
         };
@@ -325,8 +370,11 @@ define(function (require) {
                 this.onAnimation = false;
                 return;
             };
+            createjs.Tween.removeAllTweens();
+            createjs.Ticker.addEventListener("tick", this.stage);
             this.onAnimation = true;
 
+            var animationDone = 0;
             var delay = 0;
             for (var n = 0; n < words.length; n++) {
                 var word = words[n];
@@ -356,13 +404,16 @@ define(function (require) {
                         if (game.audioEnabled) {
                             playRandomDrip();
                         };
-                    }).to({y:yFinalPosition}, 1300,
-                    createjs.Ease.bounceOut);
+                    }).to({y:yFinalPosition}, 1300, createjs.Ease.bounceOut)
+                    .call(function() {
+                        ++animationDone;
+                        if (words.length === animationDone) {
+                            this.onAnimation = false;
+                            createjs.Ticker.removeEventListener("tick", this.stage);        
+                        }
+                    }, [], this);
                 delay = delay + 400;
             };
-
-            createjs.Tween.get(this.stage).wait(3000).call(
-                function() {this.onAnimation = false}, [], this);
         };
 
         this.maxNumberOfWords = function() {
@@ -383,35 +434,44 @@ define(function (require) {
                 alpha = 0.25;
             };
 
-            var font = smallScreen ? "16px Arial" : "24px Arial";
+            var font = smallScreen ? "16px VAG Rounded W01 Light" : "24px VAG Rounded W01 Light";
             var text = new createjs.Text(label, font, "#000000");
             text.x = text.getMeasuredWidth() / 2 + padding;
             text.y = padding;
             text.textAlign = "center";
             text.alpha = alpha;
 
+            var width = text.getMeasuredWidth() + padding * 2;
+            var height = text.getMeasuredHeight()+ padding * 2;
+
             var box = new createjs.Shape();
             box.graphics.beginFill(this.game.getWordColor(word, alpha)
-                ).drawRoundRect(0, 0,
-                           text.getMeasuredWidth() + padding * 2,
-                           text.getMeasuredHeight()+ padding * 2, 20);
+                ).drawRoundRect(0, 0, width, height, 20);
             cont.addChild(box);
             cont.addChild(text);
 
-            cont.cache(0, 0,
-                           text.getMeasuredWidth() + padding * 2,
-                           text.getMeasuredHeight()+ padding * 2);
-            cont.width = text.getMeasuredWidth() + padding * 2;
-            cont.height = text.getMeasuredHeight()+ padding * 2;
+            cont.cache(0, 0, width, height);
+            cont.width = width; //text.getMeasuredWidth() + padding * 2;
+            cont.height = height; //text.getMeasuredHeight()+ padding * 2;
 
             var hitArea = new createjs.Shape();
-            hitArea.graphics.beginFill("#000").drawRoundRect(0, 0,
-                           text.getMeasuredWidth() + padding * 2,
-                           text.getMeasuredHeight()+ padding * 2, 20);
+            hitArea.graphics.beginFill("#000").drawRect(0, 0,
+                           width,
+                           height);
             cont.hitArea = hitArea;
 
             cont.on('click', this.selectWordCb, this);
-            cont.on('rollover', this.selectWordCb, this);
+            //cont.on('rollover', this.selectWordCb, this);
+            cont.on('mousedown', function(evt) {
+                this.down_event = evt;
+            });
+
+            cont.on('pressup', function(evt) {
+                if(evt.stageX - evt.target.down_event.stageX > this.canvas.width/3) {
+                    this.selectedWord = evt.target;
+                    this.deleteButtonCb();
+                }
+            }, this);
 
             return text;
         };
@@ -436,6 +496,8 @@ define(function (require) {
                 this.deleteButtonImg.scaleY = scale;
 
                 this.deleteButton.visible = true;
+
+                this.stage.update();
             };
         };
 

@@ -7,7 +7,7 @@ define(function (require) {
     var soundLoaded = false;
     var onAndroid = /Android/i.test(navigator.userAgent);
     var smallScreen = (window.innerWidth < 700) || (window.innerHeight < 600);
-    var font = smallScreen ? "16px Arial" : "24px Arial";
+    var font = smallScreen ? "16px VAG Rounded W01 Light" : "24px VAG Rounded W01 Light";
 
     var soundsPath = 'sounds/';
     var soundManifest = [
@@ -139,13 +139,16 @@ define(function (require) {
             };
 
             this.animation_runnning = true;
-            var animatedLetters = [];
+            var animateColumns = [];
             for (var i = 0, height = this.puzzle.length; i < height; i++) {
                 var row = this.puzzle[i];
-                animatedLetters.push([]);
+                var animateColumn = new createjs.Container();
+                animateColumn.x = i * this.cell_size;
+                animateColumn.y = - (this.cell_size * this.puzzle.length + this.margin_y*2);
+
                 for (var j = 0, width = row.length; j < width; j++) {
 
-                    var letter = this.puzzle[i][j];
+                    var letter = this.puzzle[j][i];
                     if (this.game.lowerCase) {
                         letter = letter.toLowerCase();
                     } else {
@@ -153,34 +156,34 @@ define(function (require) {
                     };
                     var text = new createjs.Text(letter,
                                              font, "#000000");
-                    text.x = this.cell_size * j + this.cell_size / 2;
-                    text.y = this.margin_y + this.cell_size / 3;
+
+                    text.x = this.cell_size / 2;
+                    text.y = j*this.cell_size + this.cell_size / 2 + this.margin_y;
                     text.textAlign = "center";
-                    animatedLetters[animatedLetters.length -1].push(text);
-                    this.stage.addChild(text);
+                    text.textBaseline = "middle";
+                    animateColumn.addChild(text)
                 };
+                animateColumn.cache(0, 0, this.cell_size, this.cell_size * this.puzzle.length + this.margin_y);
+                this.stage.addChild(animateColumn);
+                animateColumns.push(animateColumn);
             };
 
             createjs.Ticker.addEventListener("tick", this.stage);
 
             for (var i = 0, height = this.puzzle.length; i < height; i++) {
-                delay = Math.random() * 4000;
-                for (var j = 0, width = row.length; j < width; j++) {
-                    text = animatedLetters[j][i];
-                    endY = this.cell_size * j + this.cell_size / 3 + this.margin_y;
-                    createjs.Tween.get(text).wait(delay).to(
-                        {y:endY}, 1000);
-                };
+                delay = Math.random() * 3000;
+                animateColumn = animateColumns[i];
+                createjs.Tween.get(animateColumn).wait(delay).to(
+                    {y:0}, 2000, createjs.Ease.bounceOut);
             };
             createjs.Tween.get(this.stage).wait(5000).call(
                 this.startGame, [], this);
 
         };
 
-
         this.getCell = function (x, y) {
-            var cell_x = parseInt(x / this.cell_size);
-            var cell_y = parseInt((y - this.margin_y) / this.cell_size);
+            var cell_x = Math.min(parseInt(x / this.cell_size), this.puzzle.length-1);
+            var cell_y = Math.min(parseInt((y - this.margin_y) / this.cell_size), this.puzzle.length-1);
             return [cell_x, cell_y];
         };
 
@@ -188,6 +191,8 @@ define(function (require) {
             if (this.soundInstance != null) {
                 this.soundInstance.stop();
             }
+
+            createjs.Ticker.removeEventListener("tick", this.stage);
 
             this.stage.removeAllChildren();
 
@@ -220,12 +225,12 @@ define(function (require) {
             // background and a gradient in the div containing the canvas
             // this bandaid is a white rectangle over that letters,
             // just to hide it.
-            var bandaid = new createjs.Shape();
-            bandaid.graphics.beginFill(
-                "#ffffff").drawRect(
-                0, 0,
-                this.cell_size * this.puzzle.length, this.cell_size * 2);
-            this.container.addChild(bandaid);
+            // var bandaid = new createjs.Shape();
+            // bandaid.graphics.beginFill(
+            //     "#ffffff").drawRect(
+            //     0, 0,
+            //     this.cell_size * this.puzzle.length, this.cell_size * 2);
+            // this.container.addChild(bandaid);
 
             for (var i = 0, height = this.puzzle.length; i < height; i++) {
                 var row = this.puzzle[i];
@@ -242,10 +247,17 @@ define(function (require) {
                     var text = new createjs.Text(letter,
                                              font, "#000000");
                     text.x = this.cell_size * j + this.cell_size / 2;
-                    text.y = y + this.cell_size / 3;
+                    text.y = y + this.cell_size / 2;
                     text.textAlign = "center";
+                    text.textBaseline = "middle";
                     this.container.addChild(text);
                     lettersRow.push(text);
+
+                    // show dots for debugging
+                    /*var dot = new createjs.Shape();
+                    dot.graphics.beginFill("#000000").drawCircle(this.cell_size*j, y, 1);
+                    this.container.addChild(dot);*/
+
                 };
                 this.letters.push(lettersRow);
             };
@@ -292,8 +304,8 @@ define(function (require) {
             var cell = this.getCell(event.stageX, event.stageY);
             this.select_word_line.graphics.clear();
             var color = createjs.Graphics.getRGB(0xe0e0e0, 1.0);
-            this.markWord(cell, cell,
-                          this.select_word_line, color, true);
+            var mark = this.getMark(cell, cell);
+            this.markWord(mark, this.select_word_line, color, true);
             this.prepareWordAnimation(cell, cell);
             this.showDancingLetters();
             if (this.start_cell == null) {
@@ -313,16 +325,51 @@ define(function (require) {
                 (end_cell[1] == this.end_cell[1])) {
                 return;
             };
+
+            var mark = this.getMark(this.start_cell, end_cell);
+            // console.log(mark.angle_deg % 45);
+            // if (mark.angle_deg % 45 !== 0) {
+            //     return;
+            // }
+
             this.end_cell = end_cell;
             this.select_word_line.graphics.clear();
             var color = createjs.Graphics.getRGB(0xe0e0e0, 1.0);
-            this.markWord(this.start_cell, this.end_cell,
-                          this.select_word_line, color, true);
+            this.markWord(mark, this.select_word_line, color, true);
             this.prepareWordAnimation(this.start_cell, this.end_cell);
             this.showDancingLetters();
 
-            this.stage.update();
+            //this.stage.update();
         }, this);
+
+        this.getMark = function(start_cell, end_cell) {
+            var start_cell_x = start_cell[0];
+            var start_cell_y = start_cell[1];
+
+            var end_cell_x = end_cell[0];
+            var end_cell_y = end_cell[1];
+
+            var x1 = start_cell_x * this.cell_size + this.cell_size / 2;
+            var y1 = this.margin_y + start_cell_y * this.cell_size + this.cell_size / 2;
+            var x2 = end_cell_x * this.cell_size + this.cell_size / 2;
+            var y2 = this.margin_y + end_cell_y * this.cell_size + this.cell_size / 2;
+
+            var diff_x = x2 - x1;
+            var diff_y = y2 - y1;
+            var angle_rad = Math.atan2(diff_y, diff_x);
+            var angle_deg = angle_rad * 180 / Math.PI;
+            var distance = diff_x / Math.cos(angle_rad);
+            if (Math.abs(angle_deg) == 90) {
+                distance = Math.abs(diff_y);
+            };
+
+            return {
+                x1: x1,
+                y1: y1,
+                distance: distance,
+                angle_deg: angle_deg
+            };
+        }
 
         this.verifyWord = function(start_cell, end_cell) {
             if ((start_cell != null) && (end_cell != null)) {
@@ -344,8 +391,9 @@ define(function (require) {
 
                         var color = this.game.getWordColor(word.word, 1);
                         var found_word_line = new createjs.Shape();
-                        this.markWord(start_cell, end_cell,
-                                      found_word_line, color, false);
+
+                        var mark = this.getMark(start_cell, end_cell);
+                        this.markWord(mark, found_word_line, color, false);
 
                         found_word_line.mouseEnabled = false;
                         this.wordsFoundcontainer.addChild(found_word_line);
@@ -372,29 +420,9 @@ define(function (require) {
         shape = createjs.Shape
         color = createjs.Graphics.getRGB
         */
-        this.markWord = function(start_cell, end_cell, shape, color, fill) {
+        this.markWord = function(mark, shape, color, fill) {
 
-            var start_cell_x = start_cell[0];
-            var start_cell_y = start_cell[1];
 
-            var end_cell_x = end_cell[0];
-            var end_cell_y = end_cell[1];
-
-            var x1 = start_cell_x * this.cell_size + this.cell_size / 2;
-            var y1 = this.margin_y + start_cell_y * this.cell_size +
-                this.cell_size / 2;
-            var x2 = end_cell_x * this.cell_size + this.cell_size / 2;
-            var y2 = this.margin_y + end_cell_y * this.cell_size +
-                this.cell_size / 2;
-
-            var diff_x = x2 - x1;
-            var diff_y = y2 - y1;
-            var angle_rad = Math.atan2(diff_y, diff_x);
-            var angle_deg = angle_rad * 180 / Math.PI;
-            var distance = diff_x / Math.cos(angle_rad);
-            if (Math.abs(angle_deg) == 90) {
-                distance = Math.abs(diff_y);
-            };
 
             var line_width = this.cell_size / 10;
             shape.graphics.setStrokeStyle(line_width, "round");
@@ -406,13 +434,13 @@ define(function (require) {
             shape.graphics.drawRoundRect(
                 -(this.cell_size - line_width) / 2,
                 -(this.cell_size - line_width) / 2,
-                distance + this.cell_size - line_width,
+                mark.distance + this.cell_size - line_width,
                 this.cell_size - line_width,
                 this.cell_size / 2);
             shape.graphics.endStroke();
-            shape.rotation = angle_deg;
-            shape.x = x1;
-            shape.y = y1;
+            shape.rotation = mark.angle_deg;
+            shape.x = mark.x1;
+            shape.y = mark.y1;
         };
 
         this.restoreAnimatedWord = function() {
@@ -470,23 +498,27 @@ define(function (require) {
                 var text = new createjs.Text(matrixLetter.text,
                                          font, "#FFFFFF");
                 text.x = matrixLetter.x;
-                text.y = matrixLetter.y + text.getMeasuredHeight() / 2;
+                text.y = matrixLetter.y;
                 text.textAlign = "center";
-                // this is needed to set the rotation center
-                text.regY = text.getMeasuredHeight() / 2;
+                text.textBaseline = "middle";
                 text.scaleX = 1.5;
                 text.scaleY = 1.5;
-                text.rotation = 45;
+                text.rotation = 60;
+
+                text.cache(-20, -20, 40, 40);
 
                 createjs.Tween.get(text, {loop:true}).to(
-                    {rotation:-90}, 600).to(
-                    {rotation:90}, 600);
+                    {rotation:-60}, 400).to(
+                    {rotation:60}, 400);
 
                 this.animationContainer.addChild(text);
             };
+
+            createjs.Ticker.addEventListener("tick", this.stage);
         };
 
         this.hideDancingLetters = function() {
+            createjs.Ticker.removeEventListener("tick", this.stage);
             this.animationContainer.removeAllChildren();
         };
 

@@ -1,3 +1,8 @@
+@font-face {
+  font-family: "VAG Rounded W01 Light";
+  src: url("./fonts/VAG.ttf");
+}
+
 /* Change url(../activity/activity-helloworld.svg); for set your custom activity icon */
 #main-toolbar #activity-button {
   background-image: url(../activity/icon.svg);
@@ -41,6 +46,7 @@
   width: 100%;
   position: absolute;
   top: 0px;
+  -webkit-transition: all 0.5s;
 }
 
 #introCanvas {
@@ -48,6 +54,7 @@
 }
 
 body {
+  font-family: 'VAG Rounded W01 Light';
   background-color: #38a4dd;
   position: fixed;
   overflow-y: hidden;
@@ -73,7 +80,8 @@ table td {
 #firstPage {
   align:center;
   text-align: center;
-  font: 2em sans-serif;
+  font-size: 2em;
+  -webkit-transition: all 0.5s;
 }
 
 #rightPanel {
@@ -91,10 +99,10 @@ table td {
 
 .level-button {
   vertical-align:middle;
-  background-size: 100%;
+  background-size: cover;
   background-color: transparent;
   border-radius: 0;
-  border: 0px;
+  border: none;
   padding: 11px; /* @subcell-size;  */
   margin: 22px;
 }
@@ -117,19 +125,19 @@ table td {
 
 #add-word-button {
   background-image: url('../icons/plus.svg');
-  background-size: 100%;
+  background-size: cover;
   background-color: transparent;
   border-radius: 0;
-  border: 0px;
+  border: none;
   padding: 11px; /* @subcell-size;  */
 }
 
 #random-words-button {
   background-image: url('../images/dice-random.svg');
-  background-size: 100%;
+  background-size: cover;
   background-color: transparent;
   border-radius: 0;
-  border: 0px;
+  border: none;
   padding: 11px;
 }
 
@@ -160,7 +168,7 @@ table td {
 
 .blueBorderButton {
   padding: 10px;
-  font: 1.5em sans-serif;
+  font-size: 1.5em;
   background-color: #ffffff;
   border-color: #03a9f4;
   color: #222222;
@@ -189,14 +197,13 @@ table td {
   background-color: #c13333;
   color: white;
   border-radius: 5px;
-  /* left: 1200px; */
 }
 
 table.loadData {
-  margin-top: 10px;
   margin-left:auto;
   margin-right:auto;
   text-align: left;
+  width: 80%;
 }
 
 table.loadData input {
@@ -207,4 +214,66 @@ table.loadData input {
 
 table.loadData td {
   padding: 10px;
+}
+
+#gameCanvas {
+  -webkit-transition: all 0.5s;
+}
+
+#game {
+  width: 100%;
+  -webkit-transition: all 0.5s;
+}
+
+#oe-logo-layer {
+  display: none; 
+  position: absolute; 
+  top:0; 
+  left:0; 
+  width: 100%; 
+  height:50%;
+}
+
+#oe-logo {
+  width: 100px;
+  padding: 30px;
+}
+
+#oe-credit {
+  font-size: 30px; 
+  text-align: center; 
+  color: white; 
+  margin-top: 15%;
+  opacity: 0;
+  -webkit-transition: all 2s;
+  position: absolute;
+  margin: auto;
+  left: 0px;
+  right: 0px;
+  bottom: 15%;
+}
+
+@-webkit-keyframes button-select {
+  0%   { -webkit-transform: scale(1) rotate(0deg); }
+  40%   { -webkit-transform: scale(0.7) rotate(-80deg); }
+  80%   { -webkit-transform: scale(1.5) rotate(40deg); }
+  100%   { -webkit-transform: scale(1.3) rotate(0deg); }
+}
+
+@-webkit-keyframes button-deselect {
+  0%   { -webkit-transform: scale(1.3); }
+  100%   { -webkit-transform: scale(1); }
+}
+
+@-webkit-keyframes button-click {
+  0%   { -webkit-transform: scale(1); }
+  40%   { -webkit-transform: scale(0.8); }
+  80%   { -webkit-transform: scale(1.2); }
+  100%   { -webkit-transform: scale(1); }
+}
+
+@-webkit-keyframes blink {
+  0%    { opacity: 1; }
+  50%   { opacity: 0.3; } 
+  100%  { opacity: 1; } 
 }

@@ -1,4 +1,9 @@
 define(function (require) {
+
+    // to remove 300ms delay for click event on mobile
+    var isTouch = !!('ontouchstart' in window);
+    var clickEvent = isTouch ? 'touchend' : 'click';
+
     var activity = require("sugar-web/activity/activity");
     var icon = require("sugar-web/graphics/icon");
 
@@ -76,32 +81,89 @@ define(function (require) {
             };
         } else if (page == 2) {
             // game
-            showLoadPage();
+            showLoadPage({direction: 'prev'});
         }
     };
 
     function showIntroPage() {
-        document.getElementById("canvas").style.backgroundColor = "#38a4dd";
+        //document.getElementById("canvas").style.backgroundColor = "#38a4dd";
         document.getElementById("intro").style.display = "block";
-        document.getElementById("game").style.display = "none";
+        //document.getElementById("game").style.display = "none";
+        
+        var game = document.getElementById("game");
+        game.style.webkitTransform = "scale(0)";
+        game.style.opacity = "0";
+
         page = 0;
     };
 
-    function showLoadPage() {
-        document.getElementById("canvas").style.backgroundColor = "white";
-        document.getElementById("intro").style.display = "none";
-        document.getElementById("game").style.display = "block";
-        document.getElementById("firstPage").style.display = "block";
-        document.getElementById("gameCanvas").style.display = "none";
+    function showLoadPage(options) {
+        var options = options || {};
+        //document.getElementById("canvas").style.backgroundColor = "white";    
+        // document.getElementById("firstPage").style.display = "block";
+        // document.getElementById("gameCanvas").style.display = "none";
+        // document.getElementById("intro").style.display = "none";
+        document.getElementById("game").style.display = "block";        
+
+        hideError();
+        var gameView = document.getElementById("game");
+        var gameCanvas = document.getElementById("gameCanvas");
+        var firstPage = document.getElementById("firstPage");
+        var intro = document.getElementById("intro");
+        if (options.direction === 'prev') {
+            gameCanvas.style.opacity = 0;
+            firstPage.style.opacity = 1; 
+            gameCanvas.addEventListener("webkitTransitionEnd", function listener() {
+                gameCanvas.style.display = 'none';
+                firstPage.style.display = 'block';
+                this.removeEventListener("webkitTransitionEnd", listener);
+            });
+            
+        } else {
+            if (options.mode === 'random') {
+                document.getElementById("add-word-container").style.display = 'none';
+                document.getElementById("random-button-container").style.display = 'block';
+                document.getElementById("random-label").textContent = _("RandomiseWords");
+            } else {
+                document.getElementById("add-word-container").style.display = 'block';
+                document.getElementById("random-button-container").style.display = 'none';
+                document.getElementById("random-label").textContent = _("AddWord");
+            }
+
+            gameCanvas.style.opacity = 0;
+            firstPage.style.opacity = 1; 
+            gameCanvas.style.display = 'none';
+            firstPage.style.display = 'block';
+
+            gameView.style.webkitTransform = "scale(1)";
+            gameView.style.opacity = 1;
+            gameView.addEventListener("webkitTransitionEnd", function listener() {
+                intro.style.display = "none";
+                this.removeEventListener("webkitTransitionEnd", listener);
+                options.callback && options.callback();
+            });
+        }
         page = 1;
     };
 
     function showMatrixPage() {
-        document.getElementById("canvas").style.backgroundColor = "white";
+        //document.getElementById("canvas").style.backgroundColor = "white";
         document.getElementById("intro").style.display = "none";
         document.getElementById("game").style.display = "block";
-        document.getElementById("firstPage").style.display = "none";
-        document.getElementById("gameCanvas").style.display = "block";
+        // document.getElementById("firstPage").style.display = "none";
+        // document.getElementById("gameCanvas").style.display = "block";
+
+        var gameCanvas = document.getElementById("gameCanvas");
+        var firstPage = document.getElementById("firstPage");
+        firstPage.style.opacity = 0;
+        gameCanvas.style.opacity = 1;
+        firstPage.addEventListener("webkitTransitionEnd", function listener() {
+            this.style.display = 'none';
+            gameCanvas.style.display = 'block';
+            game.start();
+            this.removeEventListener("webkitTransitionEnd", listener);
+        });
+
         page = 2;
     };
 
@@ -121,16 +183,15 @@ define(function (require) {
     function createIntroButtons(text, alpha, y, stage) {
         // show a centered text with the parameters specified
         var container = new createjs.Container();
-        var font = "60px Arial";
+        var font = "50px VAG Rounded W01 Light";
         if (smallScreen) {
-            font = "32px Arial";
+            font = "32px VAG Rounded W01 Light";
         };
         var text = new createjs.Text(text, font, "#ffffff");
         text.alpha = alpha;
         text.name = 'text';
-        container.x = (stage.canvas.width - text.getMeasuredWidth())
-                               / 2;
-        container.y = y;
+        container.x = (stage.canvas.width - text.getMeasuredWidth()) / 2;
+        container.y = stage.canvas.height - (text.getMeasuredHeight() + 10) * y - 10;
         var hitArea = new createjs.Shape();
         hitArea.graphics.beginFill("#000").drawRect(0, 0,
             text.getMeasuredWidth(),
@@ -186,6 +247,7 @@ define(function (require) {
         if (game.started) {
             return;
         };
+
         game.removeAllWords();
         if (categories == null) {
             categories = require("categories");
@@ -230,50 +292,90 @@ define(function (require) {
         var introStage = new createjs.Stage(introCanvas);
 
         createAsyncBitmap(introStage, "./images/big-letter-clouds.svg",
-            function(stage, bitmap) {
-            bounds = bitmap.getBounds();
+            function(stage, cloudBitmap) {
+            bounds = cloudBitmap.getBounds();
             var scale = introCanvas.width / bounds.width;
-            bitmap.scaleX = scale;
-            bitmap.scaleY = scale;
-            bounds = bitmap.getBounds();
-            bitmap.x = 0;
-            bitmap.y = introCanvas.height * 0.34;
-            stage.addChild(bitmap);
+            cloudBitmap.scaleX = scale;
+            cloudBitmap.scaleY = scale;
+            bounds = cloudBitmap.getBounds();
+            cloudBitmap.x = 0;
+            cloudBitmap.y = introCanvas.height * 0.7;
+            //stage.addChild(cloudBitmap);
 
             createAsyncBitmap(stage, "./images/hills.svg",
-                              function(stage, bitmap) {
-                bounds = bitmap.getBounds();
+                              function(stage, hillsBitmap) {
+                bounds = hillsBitmap.getBounds();
                 var scale = introCanvas.width / bounds.width;
-                bitmap.scaleX = scale;
-                bitmap.scaleY = scale;
-                bitmap.x = 0;
-                bitmap.y = introCanvas.height - bounds.height * scale;
-                stage.addChild(bitmap);
+                hillsBitmap.scaleX = scale;
+                hillsBitmap.scaleY = scale;
+                hillsBitmap.x = 0;
+                hillsBitmap.y = introCanvas.height - bounds.height * scale;
+
+                //stage.addChild(hillsBitmap);
 
                 createAsyncBitmap(stage, "./images/logo.svg",
-                                  function(stage, bitmap) {
-                    bounds = bitmap.getBounds();
+                                  function(stage, logoBitmap) {
+                    bounds = logoBitmap.getBounds();
                     scale = introCanvas.width * 0.52 / bounds.width;
                     console.log('LOGO SCALE ' + scale)
-                    bitmap.scaleX = scale;
-                    bitmap.scaleY = scale;
-                    bitmap.x = (introCanvas.width - (bounds.width * scale)) / 2;
-                    bitmap.y = introCanvas.height * 0.12;
-                    stage.addChild(bitmap);
+                    logoBitmap.scaleX = scale;
+                    logoBitmap.scaleY = scale;
+                    logoBitmap.x = (introCanvas.width - (bounds.width * scale)) / 2;
+                    logoBitmap.y = introCanvas.height * 0.12;
+                    logoBitmap.alpha = 0;
+                    
+                    stage.addChild(cloudBitmap);
+                    stage.addChild(hillsBitmap);
+                    stage.addChild(logoBitmap);
 
-                    continueBtn = createIntroButtons(_('Continue'),
-                        0.2, introCanvas.height * 0.74, introStage);
+                    continueBtn = createIntroButtons(_('Continue'), 0.2, 3, introStage);
                     enableContinueBtn();
 
-                    var newGameBtn = createIntroButtons(_('NewGame'),
-                        1, introCanvas.height * 0.84, introStage);
+                    var newGameBtn = createIntroButtons(_('NewGame'), 1, 2, introStage);
 
                     newGameBtn.on('click', function (e) {
                         game.removeAllWords();
                         hideIntro();
                     });
 
+                    var randomGame = createIntroButtons(_('RandomGame'), 1, 1, introStage);
+                    randomGame.on('click', function (e) {
+                        game.removeAllWords();
+                        showLoadPage({
+                            mode: 'random',
+                            callback: addRandomWords
+                        });
+                    });
                     stage.update();
+                    createjs.Ticker.addEventListener("tick", stage);
+
+                    createjs.Tween.get(cloudBitmap)
+                    .wait(300)
+                    .to({y: introCanvas.height * 0.34}, 1000, createjs.Ease.easeIn)
+                    .wait(200)
+                    .call(function() {
+                        createjs.Tween.get(logoBitmap)
+                        .to({alpha: 1}, 1000)
+                        .call(function() {
+                            createjs.Ticker.removeEventListener("tick", stage);
+                            
+                            var oeLogo = document.getElementById("oe-logo");
+                            var oeLogoLayer = document.getElementById("oe-logo-layer");
+                            var oeCredit = document.getElementById("oe-credit");
+
+                            oeLogoLayer.style.display = 'block';
+                            oeLogo.style.webkitAnimation = 'blink 3s ease-in-out 0s infinite';
+                            oeLogo.addEventListener(clickEvent, function() {
+                                if (this.style.webkitAnimation) {
+                                    this.style.webkitAnimation = '';
+                                    oeCredit.style.opacity = 1;    
+                                } else {
+                                    this.style.webkitAnimation = 'blink 3s ease-in-out 0s infinite';
+                                    oeCredit.style.opacity = 0;
+                                }
+                            });
+                        });    
+                    });
                 });
             });
         });
@@ -287,7 +389,7 @@ define(function (require) {
             size = size / 2;
         };
 
-        var text = new createjs.Text(text, size + "px Arial", "#ffffff");
+        var text = new createjs.Text(text, size + "px VAG Rounded W01 Light", "#ffffff");
         text.name = 'text';
         container.x = (stage.canvas.width - text.getMeasuredWidth())
                                / 2;
@@ -312,6 +414,7 @@ define(function (require) {
         showIntroPage();
         page = 0;
 
+        document.getElementById("oe-logo-layer").style.display = "none";
         var introCanvas = document.getElementById("introCanvas");
         introCanvas.height = window.innerHeight;
         introCanvas.width = window.innerWidth;
@@ -352,7 +455,7 @@ define(function (require) {
                     stage.addChild(bitmap);
                     y = y + bounds.height * scale + 15;
 
-                    var font = smallScreen ? "45px Arial" : "85px Arial";
+                    var font = smallScreen ? "45px VAG Rounded W01 Light" : "85px VAG Rounded W01 Light";
                     var text = new createjs.Text(_('YouWin!'), font,
                                                  "#ffffff");
                     text.x = (introCanvas.width - text.getMeasuredWidth()) / 2;
@@ -368,8 +471,8 @@ define(function (require) {
                         time = minutes + 'm ' + seconds + 's';
                     };
 
-                    font = smallScreen ? "32px Arial" : "65px Arial";
-                    var text = new createjs.Text(time, "65px Arial",
+                    font = smallScreen ? "32px VAG Rounded W01 Light" : "65px VAG Rounded W01 Light";
+                    var text = new createjs.Text(time, "65px VAG Rounded W01 Light",
                                                  "#ffffff");
                     text.x = (introCanvas.width - text.getMeasuredWidth()) / 2;
                     text.y = y;
@@ -392,8 +495,12 @@ define(function (require) {
                     });
 
                     randomGameBtn.on('click', function (e) {
-                        addRandomWords();
-                        showLoadPage();
+                        //addRandomWords();
+                        game.removeAllWords();
+                        showLoadPage({
+                            mode: 'random',
+                            callback: addRandomWords
+                        });
                     });
 
                     stage.update();
@@ -632,8 +739,8 @@ define(function (require) {
         return button;
     }
 
-    function setLevel(level) {
-
+    function setLevel(level, options) {
+        options = options || {};
         console.log('setLevel ' + game.level + ' new level ' + level);
         var originalButton = getButton(game.level);
         var button = getButton(level);
@@ -647,24 +754,32 @@ define(function (require) {
         var initSize = smallScreen ? 60 : sugarSubCellSize * 7;
 
         console.log('button ' + button + ' width ' + initSize);
-        createjs.Tween.get(button).set(
-            {webkitTransform: "rotate(30deg)"}, button.style, 500).wait(100).set(
-            {webkitTransform: "rotate(0deg)"}, button.style, 500).wait(100).set(
-            {webkitTransform: "rotate(-30deg)"}, button.style, 500).wait(100).set(
-            {webkitTransform: "rotate(0deg)"}, button.style, 500).wait(100).set(
-            {width: String(initSize * 1.5) +"px",
-             height: String(initSize * 1.5) +"px"}, button.style, 1500).wait(200).set(
-            {width: String(initSize * 1.25) +"px",
-             height: String(initSize * 1.25) +"px"}, button.style, 1000);
 
-        createjs.Tween.get(originalButton).set(
-            {width: String(initSize) +"px",
-             height: String(initSize) +"px"}, originalButton.style, 1000);
+
+
+        if (options.state === 'init') {
+            button.style.webkitTransform = 'scale(1.3)';
+        } else {
+            button.addEventListener("webkitAnimationEnd", function handler() {
+                this.style.webkitTransform = 'scale(1.3)';
+                this.style.webkitAnimation = '';
+                this.removeEventListener(handler);
+            },false);
+            button.style.webkitAnimation = 'button-select 0.5s linear';
+
+            if (button !== originalButton) {
+                originalButton.addEventListener("webkitAnimationEnd", function handler() {
+                    this.style.webkitTransform = '';
+                    this.style.webkitAnimation = '';
+                    this.removeEventListener(handler);
+                },false);
+                originalButton.style.webkitAnimation = 'button-deselect 0.1s linear';
+            }
+        }
     };
 
     // Manipulate the DOM only when it is ready.
     require(['domReady!'], function (doc) {
-
         var wordListCanvas = document.getElementById("wordListCanvas");
         var gameCanvas = document.getElementById("gameCanvas");
         var startGameButton = document.getElementById("start-game-button");
@@ -679,7 +794,20 @@ define(function (require) {
         var hardButton = document.getElementById("hard-button");
 
         // Initialize the activity.
-
+        (function giveHTMLButtonSelectEffect() {
+            var elems = Array.prototype.slice.call(arguments);
+            console.log(elems);
+            elems.forEach(function(elem) {
+                elem.addEventListener(clickEvent, function() {
+                    this.style.webkitAnimation = "button-click 0.4s linear";
+                });
+                
+                elem.addEventListener('webkitAnimationEnd', function() {
+                    this.style.webkitAnimation = "";
+                });
+            });
+        })(randomButton, addWordButton);
+        
         console.log(navigator.userAgent);
 
         if (onAndroid) {
@@ -717,12 +845,12 @@ define(function (require) {
             game.setLowerCase(lowercase);
         };
 
-        backButton.addEventListener('click', function (e) {
+        backButton.addEventListener(clickEvent, function (e) {
             previousPage();
             game.stop();
         });
 
-        randomButton.addEventListener('click', addRandomWords);
+        randomButton.addEventListener(clickEvent, addRandomWords);
 
         // datastore
         var wordList = [];
@@ -739,9 +867,9 @@ define(function (require) {
                 enableContinueBtn();
             };
             if (localStorage["level"]) {
-                setLevel(localStorage["level"]);
+                setLevel(localStorage["level"], {state: 'init'});
             } else {
-                setLevel('easy');
+                setLevel('easy', {state: 'init'});
             };
 
             if (localStorage["audio-enabled"]) {
@@ -757,14 +885,13 @@ define(function (require) {
 
         startGameButton.addEventListener('click', function (e) {
             nextPage();
-            game.start();
             hideError();
         });
 
         createjs.CSSPlugin.install(createjs.Tween);
-        createjs.Ticker.setFPS(30);
+        createjs.Ticker.setFPS(20);
 
-        addWordButton.addEventListener('click', function (e) {
+        addWordButton.addEventListener(clickEvent, function (e) {
             addWord();
         });
 
@@ -785,15 +912,15 @@ define(function (require) {
         };
 
         // level buttons
-        easyButton.addEventListener('click', function (e) {
+        easyButton.addEventListener(clickEvent, function (e) {
             setLevel('easy');
         });
 
-        mediumButton.addEventListener('click', function (e) {
+        mediumButton.addEventListener(clickEvent, function (e) {
             setLevel('medium');
         });
 
-        hardButton.addEventListener('click', function (e) {
+        hardButton.addEventListener(clickEvent, function (e) {
             setLevel('hard');
         });
 
